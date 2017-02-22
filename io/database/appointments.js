@@ -56,16 +56,7 @@ const findAllAppointmentsByWeek = weekDate => {
 }
 
 const checkActiveMenteeAppointmentByMenteeHandle = mentee_handle => {
-  const now = moment.now()
-
-  knex
-    .select('*')
-    .table( 'appointments' )
-    .count('*')
-    .where('appointment_end' > now)
-    .andWhere(knex.raw(`mentee_handles @> '{${mentee_handle}}'::text[];`))
-    .returning('*').toString()
-    .then(appointments => appointments)
+  return knex.raw(`SELECT COUNT(*) FROM appointments WHERE appointment_end > now() AND mentee_handles @> '{${mentee_handle}}'::text[]`)
 }
 
 module.exports = {
