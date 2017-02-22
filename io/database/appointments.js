@@ -55,6 +55,19 @@ const findAllAppointmentsByWeek = weekDate => {
     .orderBy( 'coach_handle', 'asc' )
 }
 
+const checkActiveMenteeAppointmentByMenteeHandle = mentee_handle => {
+  const now = moment.now()
+
+  knex
+    .select('*')
+    .table( 'appointments' )
+    .count('*')
+    .where('appointment_end' > now)
+    .andWhere(knex.raw(`mentee_handles @> '{${mentee_handle}}'::text[];`))
+    .returning('*').toString()
+    .then(appointments => appointments)
+}
+
 module.exports = {
   createAppointment,
   findFirstAppointmentByMenteeHandle,
@@ -65,4 +78,5 @@ module.exports = {
   cancelAppointment,
   findAppointmentById,
   findAllAppointmentsByWeek,
+  checkActiveMenteeAppointmentByMenteeHandle
 }

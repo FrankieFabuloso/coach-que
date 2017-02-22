@@ -6,7 +6,8 @@ const gcal = require('google-calendar')
 
 const {
   createAppointment,
-  findAppointmentById
+  findAppointmentById,
+  checkActiveMenteeAppointmentByMenteeHandle
 } = require('../io/database/appointments')
 const {getActiveCoaches,
        updateUserByHandle,
@@ -31,6 +32,11 @@ router.post('/find_next', (request, response) => {
   const pairsGithubHandle = request.body.pairs_github_handle
 
   const currentTime = moment().tz('America/Los_Angeles')
+
+  console.log('heyyyy::', checkActiveMenteeAppointmentByMenteeHandle(requestingMenteeHandle))
+
+  parseInt(checkActiveMenteeAppointmentByMenteeHandle(requestingMenteeHandle)) > 0 ? response.send('you cant ask for another appointment jerk') :
+
   getActiveCoaches()
     .then(coachesArray => {
       if (_.isEmpty(coachesArray)) {
