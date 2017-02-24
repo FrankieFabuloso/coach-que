@@ -7,95 +7,96 @@ const gcal = require('google-calendar')
 const {
   createAppointment,
   findAppointmentById,
-  countActiveMenteeAppointments
+  canScheduleAppointment
 } = require('../io/database/appointments')
-const {getActiveCoaches,
-       updateUserByHandle,
-       findUserByHandle} = require('../io/database/users')
+const {
+  getActiveCoaches,
+  updateUserByHandle,
+  findUserByHandle
+} = require('../io/database/users')
 const {
   getAllCoachesNextAppts,
   requester,
   findCoach,
   cancelAppointmentHelper
 } = require('../models/appointment')
-const {extractCalendarIds,
-       makeCalendarEvent} = require('../models/calendar')
+const {
+  extractCalendarIds,
+  makeCalendarEvent
+} = require('../models/calendar')
 const {ensureGoogleAuth} = require('../middleware')
 
-const filterUnavailableCoaches = (coachesAppointmentData) => {
-  return coachesAppointmentData.filter(
-      (coachAppointmentData) => coachAppointmentData.earliestAppointment);
-}
+const findAvailableCoaches = coachesAppointmentData =>
+  new Promise( (resolve, reject) => {
+    resolve( coachesAppointmentData.filter( data => data.earliestAppointment ) )
+  })
+
+const sortAvailableCoaches = appointments =>
+  new Promise( (resolve, reject) => {
+    resolve( appointments.sort( (a, b) =>
+      a.earliestAppointment.start > b.earliestAppointment.start
+    ))
+  })
 
 router.post('/find_next', (request, response) => {
-  const requestingMenteeHandle = requester(request)
-  const pairsGithubHandle = request.body.pairs_github_handle
+  const mentee = requester(request)
 
-  const currentTime = moment().tz('America/Los_Angeles')
-
-  countActiveMenteeAppointments(requestingMenteeHandle)
-    .then( results => {
-      if ( results.rows[0].count > 0 ){
-        response.json({
-          error: 'Could not book appointment.',
-          reason: 'You currently have an appointment scheduled.'
-        })
-      } else {
-        getActiveCoaches()
-        .then(coachesArray => {
-          if (_.isEmpty(coachesArray)) {
-            response.json({
-              error: 'Could not book appointment.',
-              reason: 'There are no active coaches.'
-            })
-          }
-          return getAllCoachesNextAppts(coachesArray, currentTime)
-        }).catch( error => response.send(error))
-        .then(allCoachesNextAppointments => {
-          const coachesWithAvailableAppointments = filterUnavailableCoaches(allCoachesNextAppointments);
-          const sortedAppointments = coachesWithAvailableAppointments.sort((a, b) =>
-            a.earliestAppointment.start > b.earliestAppointment.start
-          )
-          if(sortedAppointments[0]) {
-            let earliestApptData = sortedAppointments[0]
-            let {calendarId, earliestAppointment, google_token} = earliestApptData
-            let event = makeCalendarEvent(earliestAppointment.start, earliestAppointment.end, requestingMenteeHandle, pairsGithubHandle)
-            gcal(google_token).events.insert(calendarId, event, (error, data) =>
-              error
-                ? response.status(500).json({error: error,
-                                             google_token: google_token,
-                                             calendarId: calendarId})
-                : createAppointment({
-                  appointment_start: data.start.dateTime,
-                  appointment_end: data.end.dateTime,
-                  coach_handle: earliestApptData.github_handle,
-                  appointment_length: 30,
-                  description: `Coaching Appointment with ${requestingMenteeHandle} & ${pairsGithubHandle}.`,
-                  mentee_handles: [requestingMenteeHandle, pairsGithubHandle],
-                  event_id: data.id
-                })
-              .then(apptRecord => response.status(200).json(apptRecord)).catch( error => response.send(error))
-            )
-          } else {
-            response.json({
-              error: 'Could not schedule appointment!',
-              reason: 'All coaches are booked.'
-            })
-          }
-        }).catch( error => response.send(error))
+  canScheduleAppointment( mentee )
+    .then( canSchedule => {
+      if( ! canSchedule ) {
+        Promise.reject({ reason: 'You currently have an appointment scheduled.' })
       }
-  })
+    })
+    .then( getActiveCoaches )
+    .then( coaches => {
+      if( _.isEmpty( coaches )) {
+        Promise.reject({ reason: 'There are no active coaches.' })
+      } else {
+        return getAllCoachesNextAppts( coaches, moment().tz('America/Los_Angeles') )
+      }
+    })
+    .then( findAvailableCoaches )
+    .then( sortAvailableCoaches )
+    .then( thing( mentee, request.body.pairs_github_handle ))
+    .then( appointment => response.status( 200 ).json( appointment ))
+    .catch( error => response.json( Object.assign( {}, error, { error: 'Could not book appointment.' })))
 })
 
+const thing = (mentee, pair) => sortedAppointments => {
+  if( sortedAppointments[ 0 ] === undefined ) {
+    Promise.reject({ reason: 'All coaches are booked.' })
+  } else {
+    const { calendarId, earliestAppointment, google_token, github_handle: coach_handle } = sortedAppointments[ 0 ]
+    const { start, end } = earliestAppointment
+    const event = makeCalendarEvent( start, end, mentee, pair )
+
+    gcal( google_token ).events.insert( calendarId, event, (error, data) => {
+      if( error ) {
+        Promise.reject({ reason: error, google_token, calendarId })
+      } else {
+        return createAppointment({
+          appointment_start: data.start.dateTime,
+          appointment_end: data.end.dateTime,
+          coach_handle,
+          appointment_length: 30,
+          description: `Coaching Appointment with ${mentee} & ${pair}.`,
+          mentee_handles: [ mentee, pair ],
+          event_id: data.id
+        })
+      }
+    })
+  }
+}
+
 router.all('/', ensureGoogleAuth, (request, response) => {
-  response.json({message: `on page /calendar. Authenticated with google with accessToken:${request.session.access_token}`});
+  response.json({message: `on page /calendar. Authenticated with google with accessToken:${request.session.access_token}`})
 })
 
 router.get('/test/:github_handle', (request, response) => {
     console.log('request.params.github_handle', request.params.github_handle)
   findUserByHandle(request.params.github_handle)
     .then(user => {
-      console.log('user::', user);
+      console.log('user::', user)
       gcal(user.google_token).calendarList.list((error, calendarListResp) => {
         if (error) {
           response.send(500, error)
