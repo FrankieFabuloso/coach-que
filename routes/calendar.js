@@ -26,6 +26,7 @@ const filterUnavailableCoaches = (coachesAppointmentData) => {
       (coachAppointmentData) => coachAppointmentData.earliestAppointment);
 }
 
+// Please refactor
 router.post('/find_next', (request, response) => {
   const requestingMenteeHandle = requester(request)
   const pairsGithubHandle = request.body.pairs_github_handle
