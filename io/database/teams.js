@@ -1,5 +1,5 @@
 const knex = require('./knex')
-const { createRecord } = require('./utilities')
+const { createRecord, findRecord } = require('./utilities')
 
 const addTeams = teams =>
   Promise.all( teams.map( team => createRecord('teams', team) ))
@@ -64,6 +64,9 @@ const getUploadTimeByCycle = uploadTime =>
     .select('uploaded_at')
     .from('upload')
 
+const findLearnerByHandle = handle =>
+  findRecord('learners', 'handle', handle)
+
 module.exports = {
   addTeams,
   associateLearnersWithTeams,
@@ -77,5 +80,6 @@ module.exports = {
   getAllLearnersByCycle,
   getAllLearners,
   addUploads,
-  getUploadTimeByCycle
+  getUploadTimeByCycle,
+  findLearnerByHandle
 }

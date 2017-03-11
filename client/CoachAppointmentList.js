@@ -4,7 +4,7 @@ import moment from 'moment'
 import {Table, TableBody, TableHeader, TableHeaderColumn, TableRow, TableRowColumn} from 'material-ui/Table'
 import fetchMethod from './fetchMethod'
 
-export default class CoachApptList extends Component{
+export default class CoachAppointmentList extends Component{
   render() {
     const coachAppointments = this.props.coachAppointments
     const appointmentRows = coachAppointments.sort((apptA, apptB) => {

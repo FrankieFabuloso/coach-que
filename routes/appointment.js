@@ -2,6 +2,8 @@ const express = require('express')
 const router = express.Router()
 const rp = require('request-promise')
 const config = require('../config/config').readConfig()
+const { findFeedbackByLearnerID } = require('../io/database/feedback')
+const { findLearnerByHandle } = require('../io/database/teams')
 
 const {
   findAllAppointmentByMenteeHandle,
@@ -17,26 +19,16 @@ router.get('/coach-schedule', (request, response) => {
   const coach_handle = request.idmUser.handle
 
   findAllAppointmentByCoachId(coach_handle)
-    .then(appointments => {
-      const activeAppointments = appointments.filter(
-        appointment => !appointment.is_canceled
-      )
-
-      response.json(activeAppointments)
-  })
+    .then( retrieveAppointmentsFeedbackFrom('mentee_handles') )
+    .then( appointmentsWithFeedback => response.json(appointmentsWithFeedback) )
 })
 
 router.get('/mentee-schedule', (request, response) => {
   const currentUserHandle = request.idmUser.handle
 
   findAllAppointmentByMenteeHandle(currentUserHandle)
-    .then(appointments => {
-      const activeAppointments = appointments.filter(
-        appointment => !appointment.is_canceled
-      )
-
-      response.json(activeAppointments)
-    })
+    .then( retrieveAppointmentsFeedbackFrom('coach_handle') )
+    .then( appointmentsWithFeedback => response.json(appointmentsWithFeedback) )
 })
 
 router.get('/feedback', (request, response, next) =>{
@@ -70,5 +62,35 @@ router.get('/teaminfo', (request, response, next) => {
   }).then( teamInfo => response.json(teamInfo) )
   .catch( error => response.json( error ))
 })
+
+const retrieveAppointmentsFeedbackFrom = userType => appointments => {
+  const activeAppointments = appointments.filter( appointment =>
+    !appointment.is_canceled )
+  return Promise.all( activeAppointments.map( appointment =>
+    insertLearnerIntoAppointment( appointment, extractHandle( appointment[userType] ))
+  ))
+    .then( appointmentsWithLearners =>
+      Promise.all( appointmentsWithLearners.map( (appointment ) =>
+        insertFeedbackIntoAppointment( appointment )
+      ))
+  )
+}
+
+const extractHandle = learner => {
+  if( Array.isArray( learner )){
+    return learner[0]
+  } else {
+    return learner
+  }
+}
+
+const insertFeedbackIntoAppointment = appointment =>
+  findFeedbackByLearnerID(appointment.id, appointment.learner.id)
+    .then( feedback => Object.assign( {}, appointment, { feedback } ) )
+
+const insertLearnerIntoAppointment = ( appointment, learnerHandle ) =>
+  findLearnerByHandle( learnerHandle )
+    .then( learner => Object.assign( {}, appointment, { learner } ))
+
 
 module.exports = router

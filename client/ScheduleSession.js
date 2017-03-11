@@ -3,7 +3,7 @@ import TextField from 'material-ui/TextField'
 import RaisedButton from 'material-ui/RaisedButton'
 import Appointment from './Appointment'
 import fetchMethod from './fetchMethod'
-import MenteeApptList from './MenteeApptList'
+import MenteeAppointmentList from './MenteeAppointmentList'
 import BottomNavigationLink from './BottomNavigation'
 import {Link} from 'react-router'
 import {CANCELED_APPOINTMENT_PATH} from '../config/constants'
@@ -16,7 +16,7 @@ export default class ScheduleSession extends Component {
     this.state = {
       currentAppointments: [],
       menteeAppointments: [],
-      requestedMenteeAppts: false,
+      menteeAppointmentsRequested: false,
       requestedSchedule: false,
       createdAppointment: null
     }
@@ -34,7 +34,7 @@ export default class ScheduleSession extends Component {
         'POST',
         CANCELED_APPOINTMENT_PATH,
         {appointment_id},
-        () => this.menteeAppointments()
+        this.menteeAppointments.bind( this )
       )
     }
   }
@@ -53,22 +53,20 @@ export default class ScheduleSession extends Component {
       const callback = appointment => this.setState({
         requestedSchedule: true,
         createdAppointment: appointment
-          ? appointment
-          : null
       })
       return fetchMethod('POST', path, bodyContent, callback)
     })
   }
 
   menteeAppointments() {
-    const path = '/api/v1/appointments/mentee-schedule'
-    const callback = appointments => this.setState({
-      requestedMenteeAppts: true,
-      menteeAppointments: appointments
-        ? appointments
-        : null
-    })
-    return fetchMethod('GET', path, null).then(callback)
+    return fetchMethod('GET', '/api/v1/appointments/mentee-schedule', null)
+      .then(appointments => this.setState({
+        menteeAppointmentsRequested: true,
+        menteeAppointments: appointments
+          ? appointments
+          : null
+        })
+      )
   }
 
   renderAppointmentCard() {
@@ -80,11 +78,15 @@ export default class ScheduleSession extends Component {
 
   renderMenteeAppointments() {
     const menteeAppointments = this.state.menteeAppointments
-    return this.state.requestedMenteeAppts
-      ? <MenteeApptList
+    if( this.state.menteeAppointmentsRequested ) {
+      return (
+        <MenteeAppointmentList
           menteeAppointments={menteeAppointments}
-          cancelAppointment={this.cancelAppointment.bind(this)}/>
-      : null
+          cancelAppointment={this.cancelAppointment.bind(this)} />
+      )
+    } else {
+      return null
+    }
   }
 
   render() {

@@ -4,7 +4,7 @@ import moment from 'moment'
 import {Table, TableBody, TableHeader, TableHeaderColumn, TableRow, TableRowColumn} from 'material-ui/Table';
 import {Link} from 'react-router'
 
-export default class MenteeApptList extends Component {
+export default class MenteeAppointmentList extends Component {
   render() {
     const menteeAppointments = this.props.menteeAppointments
     const appointmentRows = menteeAppointments.sort((apptA, apptB) => {
