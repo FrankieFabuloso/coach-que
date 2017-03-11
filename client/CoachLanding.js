@@ -2,7 +2,7 @@ import React, { Component } from 'react'
 import { Link } from 'react-router'
 import RaisedButton from 'material-ui/RaisedButton'
 import ActivateCoach from './ActivateCoach'
-import CoachApptList from './CoachApptList'
+import CoachAppointmentList from './CoachAppointmentList'
 import fetchMethod from './fetchMethod'
 import BottomNavigationLink from './BottomNavigation'
 import {CANCELED_APPOINTMENT_PATH} from '../config/constants'
@@ -18,14 +18,13 @@ export default class CoachLanding extends Component {
   }
 
   appointmentList() {
-    const path = '/api/v1/appointments/coach-schedule'
-    const callback = appointments => {
-      this.setState({
-        fetchExecuted: true,
-        coachAppointments: appointments
-      })
-    }
-    return fetchMethod('GET', path, null).then(callback)
+    fetchMethod('GET', '/api/v1/appointments/coach-schedule', null)
+      .then( appointments =>
+        this.setState({
+          fetchExecuted: true,
+          coachAppointments: appointments
+        })
+      )
   }
 
   cancelAppointment(appointment_id) {
@@ -36,18 +35,22 @@ export default class CoachLanding extends Component {
         'POST',
         CANCELED_APPOINTMENT_PATH,
         {appointment_id},
-        () => this.appointmentList()
+        this.appointmentList.bind( this )
       )
     }
   }
 
   renderAppointmentList() {
     const { coachAppointments, fetchExecuted } = this.state
-    return fetchExecuted
-      ? <CoachApptList
+    if( fetchExecuted ) {
+      return (
+        <CoachAppointmentList
           coachAppointments={coachAppointments}
           cancelAppointment={this.cancelAppointment.bind(this)} />
-      : null
+      )
+    } else {
+      return null
+    }
   }
 
   loggedIntoGoogle() {

@@ -19,6 +19,7 @@ const googleRoutes = require('./routes/google')
 const calendarRoutes = require('./routes/calendar')
 const analytics = require('./routes/analytics')
 const upload = require('./routes/upload')
+const feedback = require('./routes/feedback')
 
 const calendar = require('./init/googleCalendar')
 const auth = require('./init/auth')
@@ -85,6 +86,7 @@ app.use('/google', googleRoutes)
 app.use('/api/v1/coaches', coach)
 app.use('/api/v1/appointments', appointment)
 app.use('/api/v1/analytics', analytics)
+app.use('/api/v1/feedback', feedback)
 
 
 calendar.init(app, _config)
